@@ -1,0 +1,209 @@
+/* --- Global Variables & Theme --- */
+:root {
+    --bg: #0b0f1a;
+    --card: rgba(23, 32, 53, 0.8);
+    --primary: #38bdf8;
+    --primary-glow: rgba(56, 189, 248, 0.3);
+    --text-bright: #ffffff;
+    --text-dim: #94a3b8;
+    --border: rgba(255, 255, 255, 0.1);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text-bright);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden; /* Prevent side-scrolling on mobile[cite: 4] */
+}
+
+.container { 
+    width: 100%;
+    max-width: 1100px; 
+    margin: 0 auto; 
+    padding: 0 20px; 
+}
+
+/* --- Accessibility Skip Link[cite: 2, 4] --- */
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 20px;
+    background: var(--primary);
+    color: #000;
+    padding: 12px;
+    z-index: 1000;
+    font-weight: bold;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: top 0.3s;
+}
+.skip-link:focus { top: 20px; }
+
+/* --- Mobile-First Header[cite: 4] --- */
+.main-header {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 25px;
+}
+.header-flex { 
+    display: flex; 
+    flex-direction: column; /* Stacked layout for small screens[cite: 4] */
+    align-items: center; 
+    text-align: center;
+    gap: 15px;
+}
+.brand h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -1px; }
+.brand p { color: var(--primary); font-size: 0.85rem; }
+
+/* --- Glassmorphism Card[cite: 4] --- */
+.glass-card {
+    background: var(--card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+    margin-bottom: 20px;
+}
+
+/* --- RESOLVED: Suggested Query Pills[cite: 2] --- */
+.pill-nav { 
+    display: flex; 
+    flex-wrap: wrap; 
+    justify-content: flex-start; /* Matches image alignment */
+    gap: 10px; 
+    margin: 15px 0 25px 0; 
+}
+
+.pill {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 16px;
+    border-radius: 8px; /* Square-ish rounded style to match image[cite: 2] */
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+}
+
+/* Accessibility & Interaction for Pills[cite: 2] */
+.pill:hover {
+    background: var(--primary);
+    color: #0b0f1a;
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.pill:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+}
+
+/* --- Input Area & Main Button[cite: 2, 4] --- */
+.input-container {
+    display: flex;
+    flex-direction: column; /* Stacked on mobile[cite: 4] */
+    gap: 10px;
+    background: rgba(0,0,0,0.3);
+    padding: 15px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+}
+
+#userInput {
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 10px;
+    font-size: 1rem;
+    width: 100%;
+}
+#userInput:focus { outline: none; }
+
+.btn-send, .btn-sync {
+    background: var(--primary);
+    color: #0b0f1a; /* Dark text for high contrast[cite: 4] */
+    border: none;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: 0 4px 15px var(--primary-glow);
+    font-family: inherit;
+    text-align: center;
+}
+
+.btn-send:hover, .btn-sync:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--primary-glow);
+}
+
+/* --- Dashboard Grid[cite: 4] --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Default mobile column[cite: 4] */
+    gap: 20px;
+}
+
+.map-view { height: 300px; border-radius: 16px; border: 1px solid var(--border); }
+
+/* --- Responsive Breakpoints[cite: 4] --- */
+
+/* Tablets (640px+) */
+@media (min-width: 640px) {
+    .header-flex { 
+        flex-direction: row; 
+        justify-content: space-between; 
+        text-align: left;
+    }
+    
+    .input-container {
+        flex-direction: row; /* Horizontal input on larger screens[cite: 4] */
+        padding: 8px;
+    }
+    
+    .btn-send { width: auto; }
+}
+
+/* Desktops (850px+) */
+@media (min-width: 850px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr 1.5fr; /* 2-column layout[cite: 4] */
+    }
+    .brand h1 { font-size: 1.8rem; }
+}
+
+/* --- Animations & Utilities[cite: 4] --- */
+.pulse-dot {
+    height: 8px; width: 8px; background: #10b981; border-radius: 50%;
+    display: inline-block; margin-right: 8px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.response-viewport {
+    margin-top: 25px;
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 16px;
+    min-height: 100px;
+}
