@@ -8,7 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Accessibility: Keyboard users can skip navigation -->
     <a href="#main-content" class="skip-link">Skip to Main Content</a>
 
     <header class="main-header">
@@ -27,7 +26,6 @@
     </header>
 
     <main id="main-content" class="container">
-        <!-- AI Assistant Card -->
         <section class="glass-card main-ai-section" aria-labelledby="ai-heading">
             <h2 id="ai-heading" class="sr-only">Election Assistant</h2>
             
@@ -36,34 +34,33 @@
                 <p class="muted">Powered by Gemini AI • Real-time Guidance</p>
             </div>
 
+            <!-- Removed onclick: Handled via Event Listeners in script.js -->
             <nav class="pill-nav" aria-label="Quick inquiry suggestions">
-                <button class="pill" onclick="fillInput('How do I register for a Voter ID?')">Voter Registration</button>
-                <button class="pill" onclick="fillInput('What is the minimum age to vote in India?')">Voting Age</button>
-                <button class="pill" onclick="fillInput('How to check my name in the electoral roll?')">Electoral Roll</button>
-                <button class="pill" onclick="fillInput('What documents are needed at the polling booth?')">ID Requirements</button>
+                <button class="pill" data-query="How do I register for a Voter ID?">Voter Registration</button>
+                <button class="pill" data-query="What is the minimum age to vote in India?">Voting Age</button>
+                <button class="pill" data-query="How to check my name in the electoral roll?">Electoral Roll</button>
+                <button class="pill" data-query="What documents are needed at the polling booth?">ID Requirements</button>
             </nav>
 
             <div class="input-container">
                 <input type="text" id="userInput" 
                        placeholder="Enter your question (e.g., 'EVM security' or 'NRI voting')..."
                        aria-label="Your question about Indian elections">
-                <button class="btn-send" onclick="askAI()" aria-label="Send query">
+                <button id="askBtn" class="btn-send" aria-label="Send query">
                     <span>Consult AI</span>
                 </button>
             </div>
 
-            <!-- Accessibility: Screen reader will announce when the AI responds -->
             <div id="aiResponse" class="response-viewport" aria-live="polite" aria-atomic="true">
                 <p class="placeholder-text">Waiting for your query...</p>
             </div>
         </section>
 
         <div class="dashboard-grid">
-            <!-- Timeline Section -->
             <section class="glass-card" aria-labelledby="timeline-heading">
                 <div class="section-top">
                     <h2 id="timeline-heading">Election Timeline</h2>
-                    <button class="btn-sync" onclick="loadTimeline()" aria-label="Update dates from official calendar">
+                    <button id="syncBtn" class="btn-sync" aria-label="Update dates from official calendar">
                         Sync Dates
                     </button>
                 </div>
@@ -72,7 +69,6 @@
                 </ul>
             </section>
 
-            <!-- Map Section -->
             <section class="glass-card" aria-labelledby="map-heading">
                 <h2 id="map-heading">Polling Station Finder</h2>
                 <div id="map" class="map-view" role="application" aria-label="Interactive map of polling centers"></div>

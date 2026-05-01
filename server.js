@@ -1,119 +1,127 @@
 import 'dotenv/config'; 
 import express from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai'; 
-import { google } from 'googleapis';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+
+// Import Modular Services
+import { generateWithFallback } from './services/aiService.js';
+import { logToBigQuery } from './services/analyticsService.js';
+import { getElectionEvents } from './services/calendarService.js';
+import { getMapConfig } from './services/mapService.js';
+import { getLocalAnswer } from './QA.js'; 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// --- SECURITY MIDDLEWARE ---
+/**
+ * RESOLVED: Fixed CSP blocks for Google Maps images and connections[cite: 13].
+ * Added 'https://maps.googleapis.com' to img-src to stop the red console errors[cite: 13].
+ * Added 'connect-src' to allow the frontend to reach Google APIs[cite: 13, 23].
+ */
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            "script-src": ["'self'", "https://maps.googleapis.com", "'unsafe-inline'"],
+            "connect-src": ["'self'", "https://maps.googleapis.com", "https://*.googleapis.com"],
+            "img-src": ["'self'", "https://maps.gstatic.com", "https://maps.googleapis.com", "data:"],
+            "frame-src": ["https://www.google.com"],
+        },
+    },
+}));
+
+app.use(express.json({ limit: '10kb' })); 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Rate Limiting: Prevents excessive API credit consumption[cite: 2, 13, 23].
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 50, 
+    message: { error: "Too many requests. Please try again later." }
+});
+app.use('/api/', apiLimiter);
 
-const calendar = google.calendar({
-    version: 'v3',
-    auth: process.env.GOOGLE_API_KEY 
+// --- SYSTEM ENDPOINTS ---
+
+app.get('/health', (req, res) => res.status(200).send('Healthy'));
+
+/**
+ * MAP CONFIGURATION
+ * Delivers apiKey and coordinates. Matches the property 'apiKey' expected by script.js[cite: 7, 21, 23].
+ */
+app.get('/api/config', (req, res) => {
+    try {
+        const config = getMapConfig();
+        res.json(config);
+    } catch (error) {
+        res.status(500).json({ error: "Maps configuration unavailable." });
+    }
 });
 
 /**
- * --- UPDATED LOGIC ---
- * 1. Restricts AI to Indian Election topics only.
- * 2. Removes all asterisks (*) from output.
- * 3. Includes polite greetings.
+ * AI Q&A + ANALYTICS
+ * Uses Local QA fallback first to save costs, then hits the Gemini pipeline[cite: 1, 4, 23].
  */
-async function generateWithFallback(query) {
-    const modelList = ["gemini-2.5-flash", "gemma-3-27b", "gemma-3-12b", "gemma-3-4b"];
-    let lastError = null;
-
-    // Define the strict personality and topic boundary
-    const systemInstruction = `
-        You are "CivicSync AI," a specialized expert on the Indian Election System.
-        RULES:
-        1. TOPIC: Only answer questions related to Indian elections (Voter ID, ECI, polling, eligibility, etc.).
-        2. OFF-TOPIC: If asked about other topics (cooking, global news, coding), politely say you only discuss Indian Elections.
-        3. GREETING: If the user says hi or hello, greet them warmly as CivicSync AI.
-        4. NO FORMATTING: Do not use asterisks (*) for bolding or lists. Provide plain text only.
-    `;
-
-    for (const modelName of modelList) {
-        try {
-            console.log(`Attempting with: ${modelName}...`);
-            const model = genAI.getGenerativeModel({ 
-                model: modelName,
-                systemInstruction: systemInstruction 
-            });
-
-            const result = await model.generateContent(query);
-            const response = await result.response;
-            
-            // Clean any remaining asterisks and return text[cite: 1, 5]
-            return response.text().replace(/\*/g, ''); 
-        } catch (error) {
-            lastError = error;
-            console.error(`Failed ${modelName}: ${error.message}`);
-            if (error.message.includes('429')) break; 
-            continue;
-        }
-    }
-    throw lastError; 
-}
-
-app.get('/api/config', (req, res) => {
-    res.json({ mapsKey: process.env.MAPS_API_KEY });
-});
-
 app.post('/api/ask', async (req, res) => {
+    const { query } = req.body;
+    
+    if (!query || query.length < 3) {
+        return res.status(400).json({ error: "Query too short." });
+    }
+
     try {
-        const text = await generateWithFallback(req.body.query);
+        // 1. Check Local QA Fallback[cite: 1, 23].
+        const localResult = getLocalAnswer(query);
+        if (localResult) {
+            return res.json({ text: localResult });
+        }
+
+        // 2. AI Logic with Gemini-Gemma Fallback[cite: 4, 23].
+        const text = await generateWithFallback(query);
+        
+        // 3. Background Analytics[cite: 5, 23].
+        // RESOLVED: Backgrounded to prevent 500 errors if BigQuery table is missing[cite: 18].
+        logToBigQuery(query, "Election Q&A", "Gemini-Gemma-Pipeline")
+            .catch(err => console.error("📊 Analytics Log Suppressed:", err.message));
+
         res.json({ text });
     } catch (error) {
-        console.error("Critical AI Error:", error.message);
-        if (error.message.includes('429')) {
-            return res.status(429).json({ error: "Rate limit reached. Please wait." });
-        }
-        res.status(500).json({ error: "AI Service busy. Try again soon." });
+        const isRateLimit = error.message?.includes('429');
+        res.status(isRateLimit ? 429 : 500).json({ 
+            error: isRateLimit ? "AI Rate limit reached." : "Service busy." 
+        });
     }
 });
 
 /**
- * --- UPDATED CALENDAR LOGIC ---
- * Filters for Election terms and includes Location data ("Where held")[cite: 5]
+ * CALENDAR EVENTS[cite: 6, 23].
  */
 app.get('/api/events', async (req, res) => {
     try {
-        const response = await calendar.events.list({
-            calendarId: 'en.indian#holiday@group.v.calendar.google.com',
-            timeMin: new Date().toISOString(),
-            maxResults: 25, 
-            singleEvents: true,
-            orderBy: 'startTime',
-        });
-
-        const allEvents = response.data.items || [];
-
-        const electionEvents = allEvents
-            .filter(event => {
-                const summary = (event.summary || "").toLowerCase();
-                return summary.includes('election') || summary.includes('poll') || summary.includes('voting');
-            })
-            .map(event => ({
-                date: event.start.date || event.start.dateTime,
-                title: event.summary,
-                location: event.location || "Local Election Center" // Shows "where held"[cite: 5]
-            }));
-
+        const electionEvents = await getElectionEvents();
         res.json(electionEvents);
     } catch (error) {
-        console.error("Calendar Error:", error.message);
-        res.status(500).json({ error: "Calendar API error." });
+        res.status(500).json({ error: "Could not sync election calendar." });
     }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`✅ CivicSync Server active at http://localhost:${PORT}`);
+// --- SERVER INITIALIZATION ---
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => {
+    console.log(`
+    ✅ CivicSync Server v2 Ready
+    🚀 URL: http://localhost:${PORT}
+    🛡️ Security: Custom CSP (Google Maps Fixed)
+    📊 Analytics: BigQuery Service Initialized
+    `);
+});
+
+// Graceful Shutdown[cite: 2, 23].
+process.on('SIGTERM', () => {
+    server.close(() => console.log('Process terminated.'));
 });
