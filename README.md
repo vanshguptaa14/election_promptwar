@@ -11,12 +11,12 @@
 The project follows a **"Safety-First" AI approach**[cite: 8]. Unlike general-purpose bots, CivicSync uses a custom-tuned system instruction set that forces the AI to stay within the bounds of Indian elections[cite: 8].
 
 *   **Response Cleaning**: All AI outputs undergo a post-processing phase to strip Markdown characters (like `*` or `#`), ensuring maximum compatibility with low-end devices and screen readers[cite: 4, 8].
-*   **Cascade & Local Reliability**: We utilize a hybrid response system[cite: 8]. The system first attempts to resolve queries locally via `QA_2.js`[cite: 7]. If unsuccessful, it initiates a "Cascade Logic" AI request across multiple models[cite: 4, 8].
+*   **Cascade & Local Reliability**: We utilize a hybrid response system[cite: 8]. The system first attempts to resolve queries locally via `QA.js`[cite: 7]. If unsuccessful, it initiates a "Cascade Logic" AI request across multiple models[cite: 4, 8].
 *   **Interaction Analytics**: To improve response quality and track citizen concerns, every query is logged to **Google BigQuery**[cite: 8]. This allows for real-time trend analysis of election-related queries without compromising user privacy[cite: 8].
 
 ## ⚙️ How it Works
 1.  **Query Input**: User asks a question via the accessible chat interface[cite: 5, 7, 8].
-2.  **Local Check**: The system first checks `QA_2.js` (Keyword Matching) for instant, offline-capable answers[cite: 7, 8].
+2.  **Local Check**: The system first checks `QA.js` (Keyword Matching) for instant, offline-capable answers[cite: 7, 8].
 3.  **AI Processing**: If no local match is found, the query is sent to the Gemini/Gemma API with strict "Election Official" persona instructions[cite: 4, 8].
 4.  **Logging**: The query, timestamp, and AI model used are asynchronously sent to **BigQuery** via the `analyticsService.js`[cite: 8].
 5.  **Live Data Integration**: For date or location queries, the system pulls data from Google Calendar and Maps APIs to provide real-time accuracy[cite: 4, 6, 8].
