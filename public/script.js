@@ -1,12 +1,11 @@
 /**
- * 🗳️ CivicSync | Professional Frontend Controller (v4.2.0)
+ * 🗳️ CivicSync | Professional Frontend Controller (v4.3.0)
  * Standards: ES6+, WCAG 2.1, Security Hardened, Rank 1 Performance
  */
 
 /**
  * Advanced Sanitization: Prevents XSS by converting input to text nodes.
- * @param {string} str - User query.
- * @returns {string} - Cleaned text.
+ * Ensures malicious <script> tags are neutralized before processing.
  */
 const sanitizeInput = (str) => {
     const div = document.createElement('div');
@@ -16,11 +15,14 @@ const sanitizeInput = (str) => {
 
 /**
  * AI Assistant Pipeline: Handles tiered intelligence requests.
+ * Optimized to prevent 'undefined' UI errors by validating server responses.
  */
 async function askAI() {
     const responseDiv = document.getElementById('aiResponse');
     const userInput = document.getElementById('userInput');
     
+    if (!responseDiv || !userInput) return;
+
     const rawQuery = userInput.value?.trim();
 
     // RANK 1 VALIDATION: Prevents empty or too-short queries.
@@ -50,13 +52,19 @@ async function askAI() {
         
         const data = await response.json();
 
-        if (response.status === 429) {
-            responseDiv.innerHTML = `<p class="error-text">⚠️ AI Capacity reached. Please wait a moment before asking again.</p>`;
+        // RANK 1 ERROR HANDLING: Handles 429 (Rate Limit) and 500 (Server Error)
+        if (!response.ok) {
+            const errorMsg = data.error || "The AI Assistant is currently recalibrating.";
+            responseDiv.innerHTML = `<p class="error-text">⚠️ ${errorMsg}</p>`;
             return;
         }
 
-        // UX: Smooth fade-in for AI response.
-        responseDiv.innerHTML = `<div class="fade-in AI-content">${data.text}</div>`;
+        // PREVENTION OF 'UNDEFINED' ERROR: Ensure text exists before rendering
+        if (data.text) {
+            responseDiv.innerHTML = `<div class="fade-in AI-content">${data.text}</div>`;
+        } else {
+            throw new Error("Empty AI response");
+        }
         
     } catch (error) {
         console.error("CivicSync Critical AI Error:", error);
@@ -69,6 +77,7 @@ async function askAI() {
 
 /**
  * Election Timeline Synchronization.
+ * Fetches and localizes official ECI calendar data.
  */
 async function loadTimeline() {
     const list = document.getElementById('eventList');
@@ -83,12 +92,12 @@ async function loadTimeline() {
         const response = await fetch('/api/events');
         const events = await response.json();
 
-        if (!events || events.length === 0) {
+        if (!response.ok || !events || events.length === 0) {
             list.innerHTML = `<li class="muted">No upcoming regional elections found for the current window.</li>`;
             return;
         }
 
-        // RANK 1 DATA LOCALIZATION: Formatting for Indian Standard Time.
+        // RANK 1 DATA LOCALIZATION: Formatting for Indian Standard Time (en-IN).
         list.innerHTML = events.map(event => `
             <li class="timeline-item fade-in">
                 <span class="event-date">
@@ -99,6 +108,7 @@ async function loadTimeline() {
             </li>
         `).join('');
     } catch (error) {
+        console.error("Calendar Sync Error:", error);
         list.innerHTML = `<li class="error-text">Calendar sync failed. Please click Sync to retry.</li>`;
     } finally {
         if (syncBtn) syncBtn.classList.remove('syncing');
@@ -107,7 +117,7 @@ async function loadTimeline() {
 
 /**
  * Google Maps SDK Callback.
- * RANK 1 DARK MAP: Optimized for low-light environments and high-contrast blue accents.
+ * RANK 1 DARK MAP: Custom high-contrast theme for reduced eye strain.
  */
 window.initMap = function() {
     const mapElement = document.getElementById("map");
@@ -119,26 +129,24 @@ window.initMap = function() {
         center: indiaCenter,
         zoom: 5,
         disableDefaultUI: true,
-        gestureHandling: "cooperative",
-        // RANK 1 CUSTOM DARK THEME: 
+        gestureHandling: "cooperative", // Essential for Rank 1 Mobile Accessibility
         styles: [
-            { "elementType": "geometry", "stylers": [{ "color": "#070b14" }] }, // Deep Black Background
-            { "elementType": "labels.text.fill", "stylers": [{ "color": "#38bdf8" }] }, // CivicSync Blue Labels
+            { "elementType": "geometry", "stylers": [{ "color": "#070b14" }] },
+            { "elementType": "labels.text.fill", "stylers": [{ "color": "#38bdf8" }] },
             { "elementType": "labels.text.stroke", "stylers": [{ "color": "#070b14" }] },
-            { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [{ "color": "#1e293b" }] }, // Muted borders
-            { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#0b0f1a" }] },
-            { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#020617" }] } // Darker Water
+            { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [{ "color": "#1e293b" }] },
+            { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#020617" }] }
         ]
     });
 
-    // Add high-contrast marker for the Election Commission of India (ECI)
+    // High-contrast ECI Marker
     new google.maps.Marker({
         position: { lat: 28.6273, lng: 77.2259 },
         map: map,
         title: "ECI Headquarters, New Delhi",
         icon: {
             path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-            scale: 5,
+            scale: 6,
             fillColor: "#38bdf8",
             fillOpacity: 1,
             strokeWeight: 2,
@@ -148,25 +156,29 @@ window.initMap = function() {
 };
 
 /**
- * App Initialization.
+ * App Initialization & Event Listeners.
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // Event bindings.
-    document.getElementById('askBtn')?.addEventListener('click', askAI);
-    document.getElementById('syncBtn')?.addEventListener('click', loadTimeline);
+    // UI Selectors
+    const askBtn = document.getElementById('askBtn');
+    const syncBtn = document.getElementById('syncBtn');
+    const userInput = document.getElementById('userInput');
 
-    // Accessibility: Keyboard support for input.
-    document.getElementById('userInput')?.addEventListener('keypress', (e) => {
+    // Event bindings
+    askBtn?.addEventListener('click', askAI);
+    syncBtn?.addEventListener('click', loadTimeline);
+
+    // Accessibility: Keyboard support
+    userInput?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') askAI();
     });
 
-    // Quick-Suggestion Logic.
+    // Quick-Suggestion Pills
     document.querySelectorAll('.pill').forEach(pill => {
         pill.addEventListener('click', () => {
             const query = pill.getAttribute('data-query');
-            const input = document.getElementById('userInput');
-            if (input && query) {
-                input.value = query;
+            if (userInput && query) {
+                userInput.value = query;
                 askAI();
             }
         });
@@ -174,20 +186,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Secure Bootstrap for Maps SDK.
+     * Fetches dynamic API config from server to hide keys in static code.
      */
     const bootstrapMaps = async () => {
         try {
             const res = await fetch('/api/config');
+            if (!res.ok) throw new Error("Config fetch failed");
             const config = await res.json();
             
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${config.apiKey}&callback=initMap`;
-            script.async = true;
-            script.defer = true;
-            document.head.appendChild(script);
+            if (config.apiKey) {
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${config.apiKey}&callback=initMap`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            }
         } catch (e) {
             console.error("Map Bootstrap Failure:", e);
-            // Fallback for UI if maps fail to load.
             const mapContainer = document.getElementById('map');
             if (mapContainer) mapContainer.innerHTML = '<p class="error-text">Maps service unavailable. Please check your connection.</p>';
         }
